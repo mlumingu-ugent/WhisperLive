@@ -781,6 +781,7 @@ class ServeClientFasterWhisper(ServeClientBase):
         else:
             self.model_size_or_path = model
         self.language = "en" if self.model_size_or_path.endswith("en") else language
+        self.initial_language = self.language
         self.task = task
         self.initial_prompt = initial_prompt
         self.vad_parameters = vad_parameters or {"threshold": 0.5}
@@ -859,7 +860,7 @@ class ServeClientFasterWhisper(ServeClientBase):
                         language, and `language_probability`, a float representing the confidence level
                         of the language detection.
         """
-        if info.language_probability > 0.5:
+        if info.language_probability > 0.8 and self.language != info.language:
             self.language = info.language
             logging.info(f"Detected language {self.language} with probability {info.language_probability}")
             self.websocket.send(json.dumps(
@@ -886,14 +887,14 @@ class ServeClientFasterWhisper(ServeClientBase):
         result, info = self.transcriber.transcribe(
             input_sample,
             initial_prompt=self.initial_prompt,
-            language=self.language,
+            language=self.initial_language,
             task=self.task,
             vad_filter=self.use_vad,
             vad_parameters=self.vad_parameters if self.use_vad else None)
         if ServeClientFasterWhisper.SINGLE_MODEL:
             ServeClientFasterWhisper.SINGLE_MODEL_LOCK.release()
 
-        if self.language is None and info is not None:
+        if self.initial_language is None and info is not None:
             self.set_language(info)
         return result
 
